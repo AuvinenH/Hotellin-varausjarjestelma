@@ -416,3 +416,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Project-specific runtime artifacts
+hotel-lakeview.db*
+src/HotelLakeview.Api/hotel-lakeview.db*
+uploads/
+src/HotelLakeview.Api/uploads/
