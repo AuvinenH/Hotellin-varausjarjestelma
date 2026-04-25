@@ -1,11 +1,11 @@
-# Hotellin-varausjarjestelma
+﻿# Hotellin-varausjärjestelmä
 
-Hotel Lakeview -hotellin backend, toteutettu Clean Architecture -mallilla.
+Hotel Lakeview -hotellin varausjärjestelmä, jossa backend on toteutettu Clean Architecture -mallilla ja frontend henkilökunnan sisäiseksi käyttöliittymäksi.
 
 ## Tavoite
 
 Järjestelmä tarjoaa vastaanotolle toimivan REST API:n huoneiden, asiakkaiden ja varausten hallintaan.
-Ensimmäinen MVP-versio ratkaisee erityisesti päällekkaisvarausten eston, saatavuushaun ja automaattisen hinnanlaskennan.
+Ensimmäinen MVP-versio ratkaisee erityisesti päällekkäisvarausten eston, saatavuushaun ja automaattisen hinnanlaskennan.
 
 ## Toteutetut vaatimukset
 
@@ -17,45 +17,50 @@ Ensimmäinen MVP-versio ratkaisee erityisesti päällekkaisvarausten eston, saat
 - API testattavissa Swaggerilla (OpenAPI)
 - Selkeä kerrosarkkitehtuuri ja vastuunjako
 - Kattava syötevalidointi (FluentValidation)
-- Yhtenäinen virheenkasittely (ProblemDetails)
+- Yhtenäinen virheenkäsittely (ProblemDetails)
 - Varausten muokkaus ja peruutus
 - Huonekuvien tallennus (upload/list/download/delete)
-- Raportit: kayttoaste, kuukausitulot, suosituimmat huonetyypit
-- 19 yksikkotestiä keskeiselle liiketoimintalogiikalle
+- Raportit: käyttöaste, kuukausitulot, suosituimmat huonetyypit
+- Frontend vastaanotolle (Koontinäkymä, Varaukset, Asiakkaat, Huoneet, Raportit)
+- Staff console -kielenvaihto (suomi/englanti)
+- Xamk-tyylinen UI (valkoinen, keltainen, musta)
+- Roolinäkymä frontendissa (Receptionist / Manager)
+- 20 testiä (19 yksikkötestiä + 1 integraatio smoke -testi)
 
 ## Arkkitehtuuri (Clean Architecture)
 
 Ratkaisu on jaettu seuraaviin kerroksiin:
 
 - Domain
-	- Entiteetit ja ydinliiketoimintasaannot
-	- Esim. Reservation, Room, Customer, DateRange
+  - Entiteetit ja ydinliiketoimintasäännöt
+  - Esim. Reservation, Room, Customer, DateRange
 - Application
-	- Use case -palvelut, rajapinnat, DTO:t ja validointi
-	- Ei suoraa riippuvuutta infrastruktuurin toteutuksiin
+  - Use case -palvelut, rajapinnat, DTO:t ja validointi
+  - Ei suoraa riippuvuutta infrastruktuurin toteutuksiin
 - Infrastructure
-	- EF Core + SQLite, repositoryt, tiedostotallennus
-	- Toteuttaa Application-kerroksen rajapinnat
+  - EF Core + SQLite, repositoryt, tiedostotallennus
+  - Toteuttaa Application-kerroksen rajapinnat
 - API
-	- Controllerit, middleware, Swagger, DI-kokoonpano
+  - Controllerit, middleware, Swagger, DI-kokoonpano
 
 Riippuvuussuunta:
 
 API -> Application -> Domain
 
-Infrastructure toteuttaa Applicationin abstractions-rajapinnat.
+Infrastructure toteuttaa Applicationin abstraction-rajapinnat.
 
 ## Projektirakenne
 
 ```text
 src/
-	HotelLakeview.Api/
-	HotelLakeview.Application/
-	HotelLakeview.Domain/
-	HotelLakeview.Infrastructure/
+  HotelLakeview.Api/
+  HotelLakeview.Application/
+  HotelLakeview.Domain/
+  HotelLakeview.Frontend/
+  HotelLakeview.Infrastructure/
 tests/
-	HotelLakeview.UnitTests/
-	HotelLakeview.IntegrationTests/
+  HotelLakeview.UnitTests/
+  HotelLakeview.IntegrationTests/
 ```
 
 ## Teknologiat
@@ -67,8 +72,13 @@ tests/
 - FluentValidation
 - Swagger / OpenAPI
 - xUnit
+- React + TypeScript + Vite
+- TanStack Query
+- date-fns
 
-## Kaynnistysohjeet
+## Käynnistysohjeet
+
+### Backend
 
 1. Palauta paketit:
 
@@ -82,7 +92,7 @@ dotnet restore HotelLakeview.sln
 dotnet build HotelLakeview.sln
 ```
 
-3. Kaynnista API:
+3. Käynnistä API:
 
 ```bash
 dotnet run --project src/HotelLakeview.Api/HotelLakeview.Api.csproj
@@ -93,16 +103,57 @@ dotnet run --project src/HotelLakeview.Api/HotelLakeview.Api.csproj
 - http://localhost:5000/swagger
 - tai portti, jonka sovellus tulostaa konsoliin
 
+### Frontend (henkilökunnan sisäinen näkymä)
+
+1. Siirry frontend-kansioon:
+
+```bash
+cd src/HotelLakeview.Frontend
+```
+
+2. Asenna riippuvuudet:
+
+```bash
+npm install
+```
+
+3. Käynnistä frontend:
+
+```bash
+npm run dev
+```
+
+4. Avaa selaimessa:
+
+- http://localhost:5173
+
+Vite dev server proxyaa /api-kutsut oletuksena osoitteeseen http://localhost:5178.
+Tarvittaessa muuta arvoa tiedostossa src/HotelLakeview.Frontend/.env.example.
+
+## Frontend-moduulit
+
+- Koontinäkymä: päivän yhteenveto, käyttöaste, tulot, aktiiviset varaukset
+- Varaukset: saatavuushaku, varauksen luonti, muokkaus, peruutus, automaattinen kokonaishinta
+- Asiakkaat: luonti, haku, päivitys, poisto, lisätiedot (allergiat/erityistoiveet)
+- Huoneet: CRUD, saatavuushaku, huonekuvien hallinta
+- Raportit: käyttöaste, kuukausitulot, suosituimmat huonetyypit
+
+## Turvallisuus huomio frontendissa
+
+- Frontend on suunniteltu vain sisäkäyttöön tässä vaiheessa
+- Manager-näkymä (raportit) on erotettu frontendin rooligatingilla
+- Täysi tietoturvavaatimus (käyttäjäkohtainen auth + API authorisointi) vaatii backendin autentikoinnin viimeistelyn ennen tuotantokäyttöä
+
 ## Tietokanta ja tallennus
 
-- Oletusyhteys: `Data Source=hotel-lakeview.db`
-- Tietokanta luodaan automaattisesti ensimmaisellä kaynnistyksellä
-- Huonekuvat tallennetaan oletuksena hakemistoon: `uploads/rooms`
+- Oletusyhteys: Data Source=hotel-lakeview.db
+- Tietokanta luodaan automaattisesti ensimmäisellä käynnistyksellä
+- Huonekuvat tallennetaan oletuksena hakemistoon: uploads/rooms
 
 Asetuksia voi muuttaa tiedostoissa:
 
-- `src/HotelLakeview.Api/appsettings.json`
-- `src/HotelLakeview.Api/appsettings.Development.json`
+- src/HotelLakeview.Api/appsettings.json
+- src/HotelLakeview.Api/appsettings.Development.json
 
 ## Keskeiset endpointit
 
@@ -134,7 +185,7 @@ Asetuksia voi muuttaa tiedostoissa:
 ### Huonekuvat
 
 - GET /api/rooms/{roomId}/images
-- POST /api/rooms/{roomId}/images (multipart/form-data, kentta: file)
+- POST /api/rooms/{roomId}/images (multipart/form-data, kenttä: file)
 - GET /api/rooms/{roomId}/images/{imageId}/file
 - DELETE /api/rooms/{roomId}/images/{imageId}
 
@@ -144,13 +195,13 @@ Asetuksia voi muuttaa tiedostoissa:
 - GET /api/reports/monthly-revenue?startDate=2026-01-01&endDate=2026-12-31
 - GET /api/reports/popular-room-types?startDate=2026-01-01&endDate=2026-12-31
 
-## Liiketoimintasaannot
+## Liiketoimintasäännöt
 
-### Paallekkaisvarausten esto
+### Päällekkäisvarausten esto
 
-Varausyön rivit tallennetaan tauluun `ReservationNights`.
-Tietokannassa on uniikki indeksi yhdistelmälle `(RoomId, NightDate)`.
-Tämä estää päällekkaiset varaukset myos rinnakkaisissa pyynnöissä.
+Varausyön rivit tallennetaan tauluun ReservationNights.
+Tietokannassa on uniikki indeksi yhdistelmälle (RoomId, NightDate).
+Tämä estää päällekkäiset varaukset myös rinnakkaisissa pyynnöissä.
 
 ### Sesonkihinnoittelu
 
@@ -161,9 +212,9 @@ Perushintaan lisätään 30 % seuraavina ajanjaksoina:
 
 Hinta lasketaan yökohtaisesti koko varausjaksolta.
 
-### Validointi ja virheenkasittely
+### Validointi ja virheenkäsittely
 
-- Syotteet validoidaan FluentValidationilla
+- Syötteet validoidaan FluentValidationilla
 - Virheet palautetaan ProblemDetails-muodossa
 - Tyypilliset statukset: 400, 404, 409, 500
 
@@ -175,13 +226,15 @@ Suorita testit:
 dotnet test HotelLakeview.sln
 ```
 
-Nykyinen testimaara:
+Nykyinen testimäärä:
 
+- 20 testiä yhteensä
 - 19 yksikkötestiä
-- Testatut osa-alueet: hinnoittelu, DateRange-säännöt, kayttöastelaskenta, varauksen tilakäyttäytyminen
+- 1 integraatio smoke -testi
+- Testatut osa-alueet: hinnoittelu, DateRange-säännöt, käyttöastelaskenta, varauksen tilakäyttäytyminen
 
 ## Huomio jatkokehitykseen
 
 - Lisää integraatiotestit API-endpointeille ja tietokantakonflikteille
 - Lisää autentikointi ja roolipohjainen authorisointi (Receptionist, Manager)
-- Siirrä kuvatallennus objektitallennukseen tuotantokäyttöa varten
+- Siirrä kuvatallennus objektitallennukseen tuotantokäyttöä varten
