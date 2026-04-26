@@ -102,29 +102,33 @@ public class ReservationRepository : IReservationRepository
 
     public async Task<IReadOnlyList<(int Year, int Month, decimal Revenue)>> GetMonthlyRevenueAsync(DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken)
     {
-        var data = await _dbContext.Reservations
+        var rows = await _dbContext.Reservations
             .AsNoTracking()
             .Where(reservation =>
                 reservation.Status != ReservationStatus.Cancelled
                 && reservation.CheckInDate >= startDate
                 && reservation.CheckInDate < endDate)
-            .GroupBy(reservation => new { reservation.CheckInDate.Year, reservation.CheckInDate.Month })
-            .Select(group => new
+            .Select(reservation => new
             {
-                group.Key.Year,
-                group.Key.Month,
-                Revenue = group.Sum(item => item.TotalPrice),
+                reservation.CheckInDate.Year,
+                reservation.CheckInDate.Month,
+                reservation.TotalPrice,
             })
             .ToListAsync(cancellationToken);
 
-        return data
-            .Select(item => (item.Year, item.Month, item.Revenue))
+        return rows
+            .GroupBy(item => new { item.Year, item.Month })
+            .Select(group =>
+            {
+                var revenue = group.Sum(item => item.TotalPrice);
+                return (group.Key.Year, group.Key.Month, revenue);
+            })
             .ToList();
     }
 
     public async Task<IReadOnlyList<(RoomCategory Category, int ReservationCount, int NightCount)>> GetPopularRoomTypesAsync(DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken)
     {
-        var data = await _dbContext.Reservations
+        var rows = await _dbContext.Reservations
             .AsNoTracking()
             .Where(reservation =>
                 reservation.Status != ReservationStatus.Cancelled
@@ -134,18 +138,22 @@ public class ReservationRepository : IReservationRepository
                 _dbContext.Rooms,
                 reservation => reservation.RoomId,
                 room => room.Id,
-                (reservation, room) => new { reservation, room })
-            .GroupBy(item => item.room.Category)
-            .Select(group => new
-            {
-                Category = group.Key,
-                ReservationCount = group.Count(),
-                NightCount = group.Sum(item => item.reservation.CheckOutDate.DayNumber - item.reservation.CheckInDate.DayNumber),
-            })
+                (reservation, room) => new
+                {
+                    room.Category,
+                    reservation.CheckInDate,
+                    reservation.CheckOutDate,
+                })
             .ToListAsync(cancellationToken);
 
-        return data
-            .Select(item => (item.Category, item.ReservationCount, item.NightCount))
+        return rows
+            .GroupBy(item => item.Category)
+            .Select(group =>
+            {
+                var reservationCount = group.Count();
+                var nightCount = group.Sum(item => item.CheckOutDate.DayNumber - item.CheckInDate.DayNumber);
+                return (group.Key, reservationCount, nightCount);
+            })
             .ToList();
     }
 
