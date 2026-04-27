@@ -1,5 +1,7 @@
 using HotelLakeview.Application.Abstractions;
 using HotelLakeview.Application.Contracts.Images;
+using HotelLakeview.Application.Common;
+using HotelLakeview.Api.Extensions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HotelLakeview.Api.Controllers;
@@ -16,23 +18,28 @@ public class RoomImagesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<RoomImageDto>>> GetAll(Guid roomId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll(Guid roomId, CancellationToken cancellationToken)
     {
-        var images = await _roomImageService.GetByRoomIdAsync(roomId, cancellationToken);
-        return Ok(images);
+        var result = await _roomImageService.GetByRoomIdAsync(roomId, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpPost]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<RoomImageDto>> Upload(Guid roomId, IFormFile file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Upload(Guid roomId, IFormFile file, CancellationToken cancellationToken)
     {
         if (file is null)
         {
-            throw new ArgumentException("Image file is required.");
+            return this.ToProblem(ResultError.Validation("room_image.file_required", "Image file is required."));
         }
 
         await using var stream = file.OpenReadStream();
-        var image = await _roomImageService.UploadAsync(
+        var result = await _roomImageService.UploadAsync(
             roomId,
             file.FileName,
             file.ContentType,
@@ -40,20 +47,27 @@ public class RoomImagesController : ControllerBase
             stream,
             cancellationToken);
 
-        return CreatedAtAction(nameof(GetFile), new { roomId, imageId = image.Id }, image);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return CreatedAtAction(nameof(GetFile), new { roomId, imageId = result.Value.Id }, result.Value);
     }
 
     [HttpGet("{imageId:guid}/file")]
     public async Task<IActionResult> GetFile(Guid roomId, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await _roomImageService.OpenImageAsync(roomId, imageId, cancellationToken);
-        return File(image.Content, image.ContentType, image.FileName);
+        var result = await _roomImageService.OpenImageAsync(roomId, imageId, cancellationToken);
+        return result.IsSuccess
+            ? File(result.Value.Content, result.Value.ContentType, result.Value.FileName)
+            : this.ToProblem(result.Error!);
     }
 
     [HttpDelete("{imageId:guid}")]
     public async Task<IActionResult> Delete(Guid roomId, Guid imageId, CancellationToken cancellationToken)
     {
-        await _roomImageService.DeleteAsync(roomId, imageId, cancellationToken);
-        return NoContent();
+        var result = await _roomImageService.DeleteAsync(roomId, imageId, cancellationToken);
+        return result.IsSuccess ? NoContent() : this.ToProblem(result.Error!);
     }
 }

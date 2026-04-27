@@ -1,6 +1,6 @@
 using HotelLakeview.Application.Abstractions;
+using HotelLakeview.Application.Common;
 using HotelLakeview.Application.Contracts.Customers;
-using HotelLakeview.Application.Exceptions;
 using HotelLakeview.Application.Services;
 using HotelLakeview.Domain.Entities;
 using Moq;
@@ -22,15 +22,16 @@ public class CustomerServiceTests
 
         var result = await service.CreateAsync(request, CancellationToken.None);
 
-        Assert.Equal("Test User", result.FullName);
-        Assert.Equal("test@example.com", result.Email);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Test User", result.Value.FullName);
+        Assert.Equal("test@example.com", result.Value.Email);
 
         repository.Verify(r => r.AddAsync(It.IsAny<Customer>(), CancellationToken.None), Times.Once);
         repository.Verify(r => r.SaveChangesAsync(CancellationToken.None), Times.Once);
     }
 
     [Fact]
-    public async Task CreateAsync_ThrowsConflict_WhenEmailAlreadyExists()
+    public async Task CreateAsync_ReturnsConflict_WhenEmailAlreadyExists()
     {
         var repository = new Mock<ICustomerRepository>();
         var service = new CustomerService(repository.Object);
@@ -40,14 +41,17 @@ public class CustomerServiceTests
             .Setup(r => r.GetByEmailAsync("dup@example.com", CancellationToken.None))
             .ReturnsAsync(new Customer(Guid.NewGuid(), "Existing", "dup@example.com", "123", null));
 
-        await Assert.ThrowsAsync<ConflictException>(() => service.CreateAsync(request, CancellationToken.None));
+        var result = await service.CreateAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Conflict, result.Error!.Type);
 
         repository.Verify(r => r.AddAsync(It.IsAny<Customer>(), It.IsAny<CancellationToken>()), Times.Never);
         repository.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task GetByIdAsync_ThrowsNotFound_WhenCustomerMissing()
+    public async Task GetByIdAsync_ReturnsNotFound_WhenCustomerMissing()
     {
         var repository = new Mock<ICustomerRepository>();
         var service = new CustomerService(repository.Object);
@@ -55,7 +59,10 @@ public class CustomerServiceTests
 
         repository.Setup(r => r.GetByIdAsync(id, CancellationToken.None)).ReturnsAsync((Customer?)null);
 
-        await Assert.ThrowsAsync<NotFoundException>(() => service.GetByIdAsync(id, CancellationToken.None));
+        var result = await service.GetByIdAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.NotFound, result.Error!.Type);
     }
 
     [Fact]
@@ -67,7 +74,9 @@ public class CustomerServiceTests
 
         repository.Setup(r => r.GetByIdAsync(customer.Id, CancellationToken.None)).ReturnsAsync(customer);
 
-        await service.DeleteAsync(customer.Id, CancellationToken.None);
+        var result = await service.DeleteAsync(customer.Id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
 
         repository.Verify(r => r.Remove(customer), Times.Once);
         repository.Verify(r => r.SaveChangesAsync(CancellationToken.None), Times.Once);

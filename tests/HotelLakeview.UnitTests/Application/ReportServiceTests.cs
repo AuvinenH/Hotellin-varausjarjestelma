@@ -1,4 +1,5 @@
 using HotelLakeview.Application.Abstractions;
+using HotelLakeview.Application.Common;
 using HotelLakeview.Application.Services;
 using HotelLakeview.Domain.Enums;
 using HotelLakeview.Domain.ValueObjects;
@@ -29,11 +30,12 @@ public class ReportServiceTests
 
         var result = await service.GetOccupancyAsync(startDate, endDate, CancellationToken.None);
 
-        Assert.Equal(startDate, result.StartDate);
-        Assert.Equal(endDate, result.EndDate);
-        Assert.Equal(25, result.ReservedNights);
-        Assert.Equal(50, result.TotalRoomNights);
-        Assert.Equal(50m, result.OccupancyRatePercent);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(startDate, result.Value.StartDate);
+        Assert.Equal(endDate, result.Value.EndDate);
+        Assert.Equal(25, result.Value.ReservedNights);
+        Assert.Equal(50, result.Value.TotalRoomNights);
+        Assert.Equal(50m, result.Value.OccupancyRatePercent);
     }
 
     [Fact]
@@ -79,10 +81,11 @@ public class ReportServiceTests
 
         var result = await service.GetMonthlyRevenueAsync(startDate, endDate, CancellationToken.None);
 
-        Assert.Equal(3, result.Count);
-        Assert.Equal((2025, 12, 800m), (result[0].Year, result[0].Month, result[0].Revenue));
-        Assert.Equal((2026, 1, 900m), (result[1].Year, result[1].Month, result[1].Revenue));
-        Assert.Equal((2026, 3, 1200m), (result[2].Year, result[2].Month, result[2].Revenue));
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, result.Value.Count);
+        Assert.Equal((2025, 12, 800m), (result.Value[0].Year, result.Value[0].Month, result.Value[0].Revenue));
+        Assert.Equal((2026, 1, 900m), (result.Value[1].Year, result.Value[1].Month, result.Value[1].Revenue));
+        Assert.Equal((2026, 3, 1200m), (result.Value[2].Year, result.Value[2].Month, result.Value[2].Revenue));
     }
 
     [Fact]
@@ -105,14 +108,15 @@ public class ReportServiceTests
 
         var result = await service.GetPopularRoomTypesAsync(startDate, endDate, CancellationToken.None);
 
-        Assert.Equal(3, result.Count);
-        Assert.Equal(RoomCategory.Economy, result[0].Category);
-        Assert.Equal(RoomCategory.Standard, result[1].Category);
-        Assert.Equal(RoomCategory.Suite, result[2].Category);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, result.Value.Count);
+        Assert.Equal(RoomCategory.Economy, result.Value[0].Category);
+        Assert.Equal(RoomCategory.Standard, result.Value[1].Category);
+        Assert.Equal(RoomCategory.Suite, result.Value[2].Category);
     }
 
     [Fact]
-    public async Task GetMonthlyRevenueAsync_Throws_WhenDateRangeIsInvalid()
+    public async Task GetMonthlyRevenueAsync_ReturnsValidationFailure_WhenDateRangeIsInvalid()
     {
         var reservationRepository = new Mock<IReservationRepository>();
         var roomRepository = new Mock<IRoomRepository>();
@@ -121,8 +125,10 @@ public class ReportServiceTests
         var startDate = new DateOnly(2026, 5, 10);
         var endDate = new DateOnly(2026, 5, 9);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.GetMonthlyRevenueAsync(startDate, endDate, CancellationToken.None));
+        var result = await service.GetMonthlyRevenueAsync(startDate, endDate, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Validation, result.Error!.Type);
 
         reservationRepository.Verify(repository => repository.GetMonthlyRevenueAsync(
             It.IsAny<DateOnly>(),
@@ -131,7 +137,7 @@ public class ReportServiceTests
     }
 
     [Fact]
-    public async Task GetPopularRoomTypesAsync_Throws_WhenDateRangeIsInvalid()
+    public async Task GetPopularRoomTypesAsync_ReturnsValidationFailure_WhenDateRangeIsInvalid()
     {
         var reservationRepository = new Mock<IReservationRepository>();
         var roomRepository = new Mock<IRoomRepository>();
@@ -140,8 +146,10 @@ public class ReportServiceTests
         var startDate = new DateOnly(2026, 7, 10);
         var endDate = new DateOnly(2026, 7, 10);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.GetPopularRoomTypesAsync(startDate, endDate, CancellationToken.None));
+        var result = await service.GetPopularRoomTypesAsync(startDate, endDate, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Validation, result.Error!.Type);
 
         reservationRepository.Verify(repository => repository.GetPopularRoomTypesAsync(
             It.IsAny<DateOnly>(),

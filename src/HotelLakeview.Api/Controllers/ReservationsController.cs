@@ -1,5 +1,6 @@
 using HotelLakeview.Application.Abstractions;
 using HotelLakeview.Application.Contracts.Reservations;
+using HotelLakeview.Api.Extensions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HotelLakeview.Api.Controllers;
@@ -16,37 +17,57 @@ public class ReservationsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<ReservationDto>>> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var reservations = await _reservationService.GetAllAsync(cancellationToken);
-        return Ok(reservations);
+        var result = await _reservationService.GetAllAsync(cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ReservationDto>> GetById(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var reservation = await _reservationService.GetByIdAsync(id, cancellationToken);
-        return Ok(reservation);
+        var result = await _reservationService.GetByIdAsync(id, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpPost]
-    public async Task<ActionResult<ReservationDto>> Create([FromBody] CreateReservationRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create([FromBody] CreateReservationRequest request, CancellationToken cancellationToken)
     {
-        var createdReservation = await _reservationService.CreateAsync(request, cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = createdReservation.Id }, createdReservation);
+        var result = await _reservationService.CreateAsync(request, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Value.Id }, result.Value);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<ReservationDto>> Update(Guid id, [FromBody] UpdateReservationRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateReservationRequest request, CancellationToken cancellationToken)
     {
-        var updatedReservation = await _reservationService.UpdateAsync(id, request, cancellationToken);
-        return Ok(updatedReservation);
+        var result = await _reservationService.UpdateAsync(id, request, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
     {
-        await _reservationService.CancelAsync(id, cancellationToken);
-        return NoContent();
+        var result = await _reservationService.CancelAsync(id, cancellationToken);
+        return result.IsSuccess ? NoContent() : this.ToProblem(result.Error!);
     }
 }

@@ -1,5 +1,6 @@
 using HotelLakeview.Application.Abstractions;
 using HotelLakeview.Application.Contracts.Rooms;
+using HotelLakeview.Api.Extensions;
 using HotelLakeview.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,55 +18,80 @@ public class RoomsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<RoomDto>>> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var rooms = await _roomService.GetAllAsync(cancellationToken);
-        return Ok(rooms);
+        var result = await _roomService.GetAllAsync(cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<RoomDto>> GetById(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var room = await _roomService.GetByIdAsync(id, cancellationToken);
-        return Ok(room);
+        var result = await _roomService.GetByIdAsync(id, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpGet("available")]
-    public async Task<ActionResult<IReadOnlyList<RoomDto>>> GetAvailable(
+    public async Task<IActionResult> GetAvailable(
         [FromQuery] DateOnly checkInDate,
         [FromQuery] DateOnly checkOutDate,
         [FromQuery] int guestCount,
         [FromQuery] RoomCategory? category,
         CancellationToken cancellationToken)
     {
-        var availableRooms = await _roomService.GetAvailableAsync(
+        var result = await _roomService.GetAvailableAsync(
             checkInDate,
             checkOutDate,
             guestCount,
             category,
             cancellationToken);
 
-        return Ok(availableRooms);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpPost]
-    public async Task<ActionResult<RoomDto>> Create([FromBody] CreateRoomRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create([FromBody] CreateRoomRequest request, CancellationToken cancellationToken)
     {
-        var createdRoom = await _roomService.CreateAsync(request, cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = createdRoom.Id }, createdRoom);
+        var result = await _roomService.CreateAsync(request, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Value.Id }, result.Value);
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<RoomDto>> Update(Guid id, [FromBody] UpdateRoomRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateRoomRequest request, CancellationToken cancellationToken)
     {
-        var updatedRoom = await _roomService.UpdateAsync(id, request, cancellationToken);
-        return Ok(updatedRoom);
+        var result = await _roomService.UpdateAsync(id, request, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        await _roomService.DeleteAsync(id, cancellationToken);
-        return NoContent();
+        var result = await _roomService.DeleteAsync(id, cancellationToken);
+        return result.IsSuccess ? NoContent() : this.ToProblem(result.Error!);
     }
 }

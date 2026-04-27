@@ -1,6 +1,6 @@
 using HotelLakeview.Application.Abstractions;
+using HotelLakeview.Application.Common;
 using HotelLakeview.Application.Contracts.Images;
-using HotelLakeview.Application.Exceptions;
 using HotelLakeview.Domain.Entities;
 
 namespace HotelLakeview.Application.Services;
@@ -28,30 +28,39 @@ public class RoomImageService : IRoomImageService
         _storage = storage;
     }
 
-    public async Task<IReadOnlyList<RoomImageDto>> GetByRoomIdAsync(Guid roomId, CancellationToken cancellationToken)
+    public async Task<Result<IReadOnlyList<RoomImageDto>>> GetByRoomIdAsync(Guid roomId, CancellationToken cancellationToken)
     {
-        await EnsureRoomExists(roomId, cancellationToken);
+        var roomExistsResult = await EnsureRoomExists(roomId, cancellationToken);
+        if (roomExistsResult.IsFailure)
+        {
+            return Result<IReadOnlyList<RoomImageDto>>.Failure(roomExistsResult.Error!);
+        }
+
         var images = await _imageRepository.GetByRoomIdAsync(roomId, cancellationToken);
-        return images.Select(Map).ToList();
+        return Result<IReadOnlyList<RoomImageDto>>.Success(images.Select(Map).ToList());
     }
 
-    public async Task<RoomImageDto> UploadAsync(Guid roomId, string fileName, string contentType, long sizeBytes, Stream content, CancellationToken cancellationToken)
+    public async Task<Result<RoomImageDto>> UploadAsync(Guid roomId, string fileName, string contentType, long sizeBytes, Stream content, CancellationToken cancellationToken)
     {
-        await EnsureRoomExists(roomId, cancellationToken);
+        var roomExistsResult = await EnsureRoomExists(roomId, cancellationToken);
+        if (roomExistsResult.IsFailure)
+        {
+            return Result<RoomImageDto>.Failure(roomExistsResult.Error!);
+        }
 
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            throw new ArgumentException("File name is required.");
+            return Result<RoomImageDto>.Failure(ResultError.Validation("room_image.file_name_required", "File name is required."));
         }
 
         if (!AllowedContentTypes.Contains(contentType))
         {
-            throw new ArgumentException("Unsupported file type.");
+            return Result<RoomImageDto>.Failure(ResultError.Validation("room_image.unsupported_type", "Unsupported file type."));
         }
 
         if (sizeBytes <= 0 || sizeBytes > MaxFileSizeBytes)
         {
-            throw new ArgumentException("Image size must be between 1 byte and 5 MB.");
+            return Result<RoomImageDto>.Failure(ResultError.Validation("room_image.invalid_size", "Image size must be between 1 byte and 5 MB."));
         }
 
         var extension = Path.GetExtension(fileName);
@@ -72,46 +81,68 @@ public class RoomImageService : IRoomImageService
         await _imageRepository.AddAsync(image, cancellationToken);
         await _imageRepository.SaveChangesAsync(cancellationToken);
 
-        return Map(image);
+        return Result<RoomImageDto>.Success(Map(image));
     }
 
-    public async Task<(Stream Content, string ContentType, string FileName)> OpenImageAsync(Guid roomId, Guid imageId, CancellationToken cancellationToken)
+    public async Task<Result<(Stream Content, string ContentType, string FileName)>> OpenImageAsync(Guid roomId, Guid imageId, CancellationToken cancellationToken)
     {
-        await EnsureRoomExists(roomId, cancellationToken);
+        var roomExistsResult = await EnsureRoomExists(roomId, cancellationToken);
+        if (roomExistsResult.IsFailure)
+        {
+            return Result<(Stream Content, string ContentType, string FileName)>.Failure(roomExistsResult.Error!);
+        }
 
-        var image = await _imageRepository.GetByIdAsync(imageId, cancellationToken)
-            ?? throw new NotFoundException($"Image '{imageId}' was not found.");
+        var image = await _imageRepository.GetByIdAsync(imageId, cancellationToken);
+        if (image is null)
+        {
+            return Result<(Stream Content, string ContentType, string FileName)>.Failure(ResultError.NotFound("room_image.not_found", $"Image '{imageId}' was not found."));
+        }
 
         if (image.RoomId != roomId)
         {
-            throw new NotFoundException($"Image '{imageId}' was not found for room '{roomId}'.");
+            return Result<(Stream Content, string ContentType, string FileName)>.Failure(ResultError.NotFound("room_image.not_found_for_room", $"Image '{imageId}' was not found for room '{roomId}'."));
         }
 
         var stream = await _storage.OpenReadAsync(image.StoredFileName, cancellationToken);
-        return (stream, image.ContentType, image.FileName);
+        return Result<(Stream Content, string ContentType, string FileName)>.Success((stream, image.ContentType, image.FileName));
     }
 
-    public async Task DeleteAsync(Guid roomId, Guid imageId, CancellationToken cancellationToken)
+    public async Task<Result> DeleteAsync(Guid roomId, Guid imageId, CancellationToken cancellationToken)
     {
-        await EnsureRoomExists(roomId, cancellationToken);
+        var roomExistsResult = await EnsureRoomExists(roomId, cancellationToken);
+        if (roomExistsResult.IsFailure)
+        {
+            return roomExistsResult;
+        }
 
-        var image = await _imageRepository.GetByIdAsync(imageId, cancellationToken)
-            ?? throw new NotFoundException($"Image '{imageId}' was not found.");
+        var image = await _imageRepository.GetByIdAsync(imageId, cancellationToken);
+        if (image is null)
+        {
+            return Result.Failure(ResultError.NotFound("room_image.not_found", $"Image '{imageId}' was not found."));
+        }
 
         if (image.RoomId != roomId)
         {
-            throw new NotFoundException($"Image '{imageId}' was not found for room '{roomId}'.");
+            return Result.Failure(ResultError.NotFound("room_image.not_found_for_room", $"Image '{imageId}' was not found for room '{roomId}'."));
         }
 
         await _storage.DeleteAsync(image.StoredFileName, cancellationToken);
         _imageRepository.Remove(image);
         await _imageRepository.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
     }
 
-    private async Task EnsureRoomExists(Guid roomId, CancellationToken cancellationToken)
+    private async Task<Result> EnsureRoomExists(Guid roomId, CancellationToken cancellationToken)
     {
-        _ = await _roomRepository.GetByIdAsync(roomId, cancellationToken)
-            ?? throw new NotFoundException($"Room '{roomId}' was not found.");
+        var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
+
+        if (room is null)
+        {
+            return Result.Failure(ResultError.NotFound("room.not_found", $"Room '{roomId}' was not found."));
+        }
+
+        return Result.Success();
     }
 
     private static RoomImageDto Map(RoomImage image)

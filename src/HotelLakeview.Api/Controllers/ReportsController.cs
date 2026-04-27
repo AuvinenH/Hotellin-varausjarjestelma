@@ -1,5 +1,6 @@
 using HotelLakeview.Application.Abstractions;
 using HotelLakeview.Application.Contracts.Reports;
+using HotelLakeview.Api.Extensions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HotelLakeview.Api.Controllers;
@@ -16,32 +17,47 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("occupancy")]
-    public async Task<ActionResult<OccupancyReportDto>> GetOccupancy(
+    public async Task<IActionResult> GetOccupancy(
         [FromQuery] DateOnly startDate,
         [FromQuery] DateOnly endDate,
         CancellationToken cancellationToken)
     {
-        var report = await _reportService.GetOccupancyAsync(startDate, endDate, cancellationToken);
-        return Ok(report);
+        var result = await _reportService.GetOccupancyAsync(startDate, endDate, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpGet("monthly-revenue")]
-    public async Task<ActionResult<IReadOnlyList<MonthlyRevenueDto>>> GetMonthlyRevenue(
+    public async Task<IActionResult> GetMonthlyRevenue(
         [FromQuery] DateOnly startDate,
         [FromQuery] DateOnly endDate,
         CancellationToken cancellationToken)
     {
-        var report = await _reportService.GetMonthlyRevenueAsync(startDate, endDate, cancellationToken);
-        return Ok(report);
+        var result = await _reportService.GetMonthlyRevenueAsync(startDate, endDate, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 
     [HttpGet("popular-room-types")]
-    public async Task<ActionResult<IReadOnlyList<PopularRoomTypeDto>>> GetPopularRoomTypes(
+    public async Task<IActionResult> GetPopularRoomTypes(
         [FromQuery] DateOnly startDate,
         [FromQuery] DateOnly endDate,
         CancellationToken cancellationToken)
     {
-        var report = await _reportService.GetPopularRoomTypesAsync(startDate, endDate, cancellationToken);
-        return Ok(report);
+        var result = await _reportService.GetPopularRoomTypesAsync(startDate, endDate, cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToProblem(result.Error!);
+        }
+
+        return Ok(result.Value);
     }
 }
