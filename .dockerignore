@@ -1,0 +1,11 @@
+.git
+.gitignore
+.vs
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/publish
+**/*.user
+**/*.suo
+**/*.db

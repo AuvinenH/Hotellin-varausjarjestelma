@@ -1,0 +1,30 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/HotelLakeview.Api/Dockerfile
+    container_name: hotel-lakeview-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Data Source=/app/data/hotel-lakeview.db
+      Storage__RoomImagesPath: uploads/rooms
+      Cors__AllowedOrigins__0: http://localhost:8080
+    ports:
+      - "5178:8080"
+    volumes:
+      - api_db:/app/data
+      - api_uploads:/app/uploads/rooms
+
+  frontend:
+    build:
+      context: .
+      dockerfile: src/HotelLakeview.Frontend/Dockerfile
+    container_name: hotel-lakeview-frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  api_db:
+  api_uploads:

@@ -25,7 +25,7 @@ Ensimmäinen MVP-versio ratkaisee erityisesti päällekkäisvarausten eston, saa
 - Staff console -kielenvaihto (suomi/englanti)
 - Xamk-tyylinen UI (valkoinen, keltainen, musta)
 - Roolinäkymä frontendissa (Receptionist / Manager)
-- 20 testiä (19 yksikkötestiä + 1 integraatio smoke -testi)
+- 33 testiä (32 yksikkötestiä + 1 integraatio smoke -testi)
 
 ## Arkkitehtuuri (Clean Architecture)
 
@@ -72,6 +72,7 @@ tests/
 - FluentValidation
 - Swagger / OpenAPI
 - xUnit
+- Moq
 - React + TypeScript + Vite
 - TanStack Query
 - date-fns
@@ -129,6 +130,52 @@ npm run dev
 
 Vite dev server proxyaa /api-kutsut oletuksena osoitteeseen http://localhost:5178.
 Tarvittaessa muuta arvoa tiedostossa src/HotelLakeview.Frontend/.env.example.
+
+## Docker-käyttö
+
+Sovellus on ajettavissa kokonaan Dockerilla (API + frontend) tiedostolla `docker-compose.yml`.
+
+### Esivaatimukset
+
+- Docker Desktop (tai Docker Engine + Compose v2)
+
+### Käynnistys
+
+Suorita projektin juuresta:
+
+```bash
+docker compose up --build
+```
+
+Palvelut:
+
+- Frontend: http://localhost:8080
+- API (suora): http://localhost:5178/swagger
+
+### Pysäytys
+
+```bash
+docker compose down
+```
+
+Jos haluat poistaa myös datavoluumit (SQLite + uploads):
+
+```bash
+docker compose down -v
+```
+
+### Mitä compose tekee
+
+- `api` service:
+  - Buildaa imagensa tiedostosta `src/HotelLakeview.Api/Dockerfile`
+  - Ajaa API:n portissa `8080` (hostilta `5178`)
+  - Tallentaa SQLite-datan volumeen `api_db`
+  - Tallentaa kuvat volumeen `api_uploads`
+
+- `frontend` service:
+  - Buildaa imagensa tiedostosta `src/HotelLakeview.Frontend/Dockerfile`
+  - Ajaa Nginxissa portissa `80` (hostilta `8080`)
+  - Proxytaa `/api/*` kutsut API-containeriin, joten selain käyttää samaa originia
 
 ## Azure deployment (Bicep)
 
@@ -314,10 +361,10 @@ dotnet test HotelLakeview.sln
 
 Nykyinen testimäärä:
 
-- 20 testiä yhteensä
-- 19 yksikkötestiä
+- 33 testiä yhteensä
+- 32 yksikkötestiä
 - 1 integraatio smoke -testi
-- Testatut osa-alueet: hinnoittelu, DateRange-säännöt, käyttöastelaskenta, varauksen tilakäyttäytyminen
+- Testatut osa-alueet: hinnoittelu, DateRange-säännöt, käyttöastelaskenta, varauksen tilakäyttäytyminen, ReportService (mockit), CustomerService (mockit), RoomService (mockit)
 
 ## Huomio jatkokehitykseen
 
