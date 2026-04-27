@@ -11,6 +11,16 @@
 *.sln.docstates
 *.env
 
+# Local deployment artifacts
+src/HotelLakeview.Api/publish/
+src/HotelLakeview.Api/publish.zip
+src/HotelLakeview.Frontend/dist/
+.azure/
+
+# Azure deployment parameter files can contain secrets
+infra/*.parameters.json
+!infra/main.parameters.example.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

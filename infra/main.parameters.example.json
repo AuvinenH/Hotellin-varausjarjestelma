@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "swedencentral"
+    },
+    "appServicePlanName": {
+      "value": "hotel-lakeview-plan"
+    },
+    "appServicePlanSkuName": {
+      "value": "F1"
+    },
+    "appServicePlanSkuTier": {
+      "value": "Basic"
+    },
+    "webAppName": {
+      "value": "hotel-lakeview-api"
+    },
+    "storageAccountName": {
+      "value": "stlakeview"
+    },
+    "storageAccountSku": {
+      "value": "Standard_LRS"
+    },
+    "frontendOrigin": {
+      "value": "https://stlakeview.z43.web.core.windows.net"
+    },
+    "sqliteDataSource": {
+      "value": "%HOME%\\data\\hotel-lakeview.db"
+    },
+    "roomImagesContainerName": {
+      "value": "roomimages"
+    },
+    "roomImagesPublicAccess": {
+      "value": "Blob"
+    },
+    "alwaysOn": {
+      "value": false
+    },
+    "tags": {
+      "value": {
+        "project": "hotel-lakeview",
+        "environment": "prod"
+      }
+    }
+  }
+}

@@ -130,6 +130,92 @@ npm run dev
 Vite dev server proxyaa /api-kutsut oletuksena osoitteeseen http://localhost:5178.
 Tarvittaessa muuta arvoa tiedostossa src/HotelLakeview.Frontend/.env.example.
 
+## Azure deployment (Bicep)
+
+Repository sisältää valmiin Bicep-pohjan infrastruktuurille:
+
+- infra/main.bicep
+- infra/main.parameters.example.json
+
+Malli luo seuraavat resurssit:
+
+- App Service Plan
+- App Service (API)
+- Storage Account (static website frontendille)
+- Blob container huonekuville (oletus: roomimages)
+- API app settings + connection string (SQLite polku App Servicessä)
+
+### 1. Esivaatimukset
+
+- Azure CLI asennettuna
+- Kirjautuminen: az login
+- Resource group olemassa (esim. rg-hotel-lakeview)
+
+### 2. Deployaa infrastruktuuri Bicepillä
+
+Kopioi ensin parametriesimerkki omaksi tiedostoksi:
+
+```bash
+copy infra\\main.parameters.example.json infra\\main.parameters.json
+```
+
+Päivitä arvot tiedostoon infra/main.parameters.json (nimet, region, origin).
+Huom: frontendOrigin ilman lopun kauttaviivaa (/).
+
+Suorita deployment:
+
+```bash
+az deployment group create \
+  --resource-group rg-hotel-lakeview \
+  --template-file infra/main.bicep \
+  --parameters @infra/main.parameters.json
+```
+
+### 3. Deployaa API App Serviceen
+
+```bash
+dotnet publish -c Release -o src/HotelLakeview.Api/publish src/HotelLakeview.Api/HotelLakeview.Api.csproj
+```
+
+Pakkaa publish-kansio zipiksi ja deployaa:
+
+```bash
+powershell -Command "Compress-Archive -Path src/HotelLakeview.Api/publish/* -DestinationPath src/HotelLakeview.Api/publish.zip -Force"
+
+az webapp deploy \
+  --resource-group rg-hotel-lakeview \
+  --name hotel-lakeview-api \
+  --src-path src/HotelLakeview.Api/publish.zip \
+  --type zip
+```
+
+### 4. Buildaa ja julkaise frontend static websiteen
+
+Anna buildille API-osoite:
+
+```bash
+VITE_API_BASE_URL=https://hotel-lakeview-api.azurewebsites.net npm run build --prefix src/HotelLakeview.Frontend
+```
+
+Upload dist -> $web:
+
+```bash
+az storage blob upload-batch \
+  --account-name stlakeview \
+  --destination '$web' \
+  --source src/HotelLakeview.Frontend/dist \
+  --auth-mode login \
+  --overwrite
+```
+
+Jos RBAC estää uploadin, käytä auth-mode key.
+
+### 5. Varmista CORS
+
+- Aseta frontendOrigin arvoksi frontendin origin ilman trailing slashia.
+- Esimerkki oikein: https://stlakeview.z43.web.core.windows.net
+- Esimerkki väärin: https://stlakeview.z43.web.core.windows.net/
+
 ## Frontend-moduulit
 
 - Koontinäkymä: päivän yhteenveto, käyttöaste, tulot, aktiiviset varaukset
