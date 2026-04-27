@@ -1,6 +1,7 @@
-using HotelLakeview.Application.Abstractions;
+using HotelLakeview.Application.CQRS.Reports;
 using HotelLakeview.Application.Contracts.Reports;
 using HotelLakeview.Api.Extensions;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HotelLakeview.Api.Controllers;
@@ -9,11 +10,11 @@ namespace HotelLakeview.Api.Controllers;
 [Route("api/reports")]
 public class ReportsController : ControllerBase
 {
-    private readonly IReportService _reportService;
+    private readonly ISender _sender;
 
-    public ReportsController(IReportService reportService)
+    public ReportsController(ISender sender)
     {
-        _reportService = reportService;
+        _sender = sender;
     }
 
     [HttpGet("occupancy")]
@@ -22,7 +23,7 @@ public class ReportsController : ControllerBase
         [FromQuery] DateOnly endDate,
         CancellationToken cancellationToken)
     {
-        var result = await _reportService.GetOccupancyAsync(startDate, endDate, cancellationToken);
+        var result = await _sender.Send(new GetOccupancyReportQuery(startDate, endDate), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -37,7 +38,7 @@ public class ReportsController : ControllerBase
         [FromQuery] DateOnly endDate,
         CancellationToken cancellationToken)
     {
-        var result = await _reportService.GetMonthlyRevenueAsync(startDate, endDate, cancellationToken);
+        var result = await _sender.Send(new GetMonthlyRevenueReportQuery(startDate, endDate), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -52,7 +53,7 @@ public class ReportsController : ControllerBase
         [FromQuery] DateOnly endDate,
         CancellationToken cancellationToken)
     {
-        var result = await _reportService.GetPopularRoomTypesAsync(startDate, endDate, cancellationToken);
+        var result = await _sender.Send(new GetPopularRoomTypesReportQuery(startDate, endDate), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);

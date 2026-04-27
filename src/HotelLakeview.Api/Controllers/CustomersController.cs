@@ -1,6 +1,7 @@
-using HotelLakeview.Application.Abstractions;
+using HotelLakeview.Application.CQRS.Customers;
 using HotelLakeview.Application.Contracts.Customers;
 using HotelLakeview.Api.Extensions;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HotelLakeview.Api.Controllers;
@@ -9,17 +10,17 @@ namespace HotelLakeview.Api.Controllers;
 [Route("api/customers")]
 public class CustomersController : ControllerBase
 {
-    private readonly ICustomerService _customerService;
+    private readonly ISender _sender;
 
-    public CustomersController(ICustomerService customerService)
+    public CustomersController(ISender sender)
     {
-        _customerService = customerService;
+        _sender = sender;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? search, CancellationToken cancellationToken)
     {
-        var result = await _customerService.GetAllAsync(search, cancellationToken);
+        var result = await _sender.Send(new GetCustomersQuery(search), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -31,7 +32,7 @@ public class CustomersController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var result = await _customerService.GetByIdAsync(id, cancellationToken);
+        var result = await _sender.Send(new GetCustomerByIdQuery(id), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -43,7 +44,7 @@ public class CustomersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCustomerRequest request, CancellationToken cancellationToken)
     {
-        var result = await _customerService.CreateAsync(request, cancellationToken);
+        var result = await _sender.Send(new CreateCustomerCommand(request), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -55,7 +56,7 @@ public class CustomersController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCustomerRequest request, CancellationToken cancellationToken)
     {
-        var result = await _customerService.UpdateAsync(id, request, cancellationToken);
+        var result = await _sender.Send(new UpdateCustomerCommand(id, request), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -67,7 +68,7 @@ public class CustomersController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var result = await _customerService.DeleteAsync(id, cancellationToken);
+        var result = await _sender.Send(new DeleteCustomerCommand(id), cancellationToken);
         return result.IsSuccess ? NoContent() : this.ToProblem(result.Error!);
     }
 }

@@ -1,7 +1,8 @@
-using HotelLakeview.Application.Abstractions;
+using HotelLakeview.Application.CQRS.Rooms;
 using HotelLakeview.Application.Contracts.Rooms;
 using HotelLakeview.Api.Extensions;
 using HotelLakeview.Domain.Enums;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HotelLakeview.Api.Controllers;
@@ -10,17 +11,17 @@ namespace HotelLakeview.Api.Controllers;
 [Route("api/rooms")]
 public class RoomsController : ControllerBase
 {
-    private readonly IRoomService _roomService;
+    private readonly ISender _sender;
 
-    public RoomsController(IRoomService roomService)
+    public RoomsController(ISender sender)
     {
-        _roomService = roomService;
+        _sender = sender;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var result = await _roomService.GetAllAsync(cancellationToken);
+        var result = await _sender.Send(new GetRoomsQuery(), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -32,7 +33,7 @@ public class RoomsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var result = await _roomService.GetByIdAsync(id, cancellationToken);
+        var result = await _sender.Send(new GetRoomByIdQuery(id), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -49,12 +50,7 @@ public class RoomsController : ControllerBase
         [FromQuery] RoomCategory? category,
         CancellationToken cancellationToken)
     {
-        var result = await _roomService.GetAvailableAsync(
-            checkInDate,
-            checkOutDate,
-            guestCount,
-            category,
-            cancellationToken);
+        var result = await _sender.Send(new GetAvailableRoomsQuery(checkInDate, checkOutDate, guestCount, category), cancellationToken);
 
         if (result.IsFailure)
         {
@@ -67,7 +63,7 @@ public class RoomsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateRoomRequest request, CancellationToken cancellationToken)
     {
-        var result = await _roomService.CreateAsync(request, cancellationToken);
+        var result = await _sender.Send(new CreateRoomCommand(request), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -79,7 +75,7 @@ public class RoomsController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateRoomRequest request, CancellationToken cancellationToken)
     {
-        var result = await _roomService.UpdateAsync(id, request, cancellationToken);
+        var result = await _sender.Send(new UpdateRoomCommand(id, request), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -91,7 +87,7 @@ public class RoomsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var result = await _roomService.DeleteAsync(id, cancellationToken);
+        var result = await _sender.Send(new DeleteRoomCommand(id), cancellationToken);
         return result.IsSuccess ? NoContent() : this.ToProblem(result.Error!);
     }
 }

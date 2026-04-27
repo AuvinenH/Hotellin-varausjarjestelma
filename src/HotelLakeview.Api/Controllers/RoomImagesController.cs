@@ -1,7 +1,8 @@
-using HotelLakeview.Application.Abstractions;
 using HotelLakeview.Application.Contracts.Images;
 using HotelLakeview.Application.Common;
+using HotelLakeview.Application.CQRS.RoomImages;
 using HotelLakeview.Api.Extensions;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HotelLakeview.Api.Controllers;
@@ -10,17 +11,17 @@ namespace HotelLakeview.Api.Controllers;
 [Route("api/rooms/{roomId:guid}/images")]
 public class RoomImagesController : ControllerBase
 {
-    private readonly IRoomImageService _roomImageService;
+    private readonly ISender _sender;
 
-    public RoomImagesController(IRoomImageService roomImageService)
+    public RoomImagesController(ISender sender)
     {
-        _roomImageService = roomImageService;
+        _sender = sender;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll(Guid roomId, CancellationToken cancellationToken)
     {
-        var result = await _roomImageService.GetByRoomIdAsync(roomId, cancellationToken);
+        var result = await _sender.Send(new GetRoomImagesQuery(roomId), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToProblem(result.Error!);
@@ -39,12 +40,8 @@ public class RoomImagesController : ControllerBase
         }
 
         await using var stream = file.OpenReadStream();
-        var result = await _roomImageService.UploadAsync(
-            roomId,
-            file.FileName,
-            file.ContentType,
-            file.Length,
-            stream,
+        var result = await _sender.Send(
+            new UploadRoomImageCommand(roomId, file.FileName, file.ContentType, file.Length, stream),
             cancellationToken);
 
         if (result.IsFailure)
@@ -58,7 +55,7 @@ public class RoomImagesController : ControllerBase
     [HttpGet("{imageId:guid}/file")]
     public async Task<IActionResult> GetFile(Guid roomId, Guid imageId, CancellationToken cancellationToken)
     {
-        var result = await _roomImageService.OpenImageAsync(roomId, imageId, cancellationToken);
+        var result = await _sender.Send(new OpenRoomImageQuery(roomId, imageId), cancellationToken);
         return result.IsSuccess
             ? File(result.Value.Content, result.Value.ContentType, result.Value.FileName)
             : this.ToProblem(result.Error!);
@@ -67,7 +64,7 @@ public class RoomImagesController : ControllerBase
     [HttpDelete("{imageId:guid}")]
     public async Task<IActionResult> Delete(Guid roomId, Guid imageId, CancellationToken cancellationToken)
     {
-        var result = await _roomImageService.DeleteAsync(roomId, imageId, cancellationToken);
+        var result = await _sender.Send(new DeleteRoomImageCommand(roomId, imageId), cancellationToken);
         return result.IsSuccess ? NoContent() : this.ToProblem(result.Error!);
     }
 }

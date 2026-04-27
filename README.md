@@ -18,9 +18,12 @@ Ensimmäinen MVP-versio ratkaisee erityisesti päällekkäisvarausten eston, saa
 - Selkeä kerrosarkkitehtuuri ja vastuunjako
 - Kattava syötevalidointi (FluentValidation)
 - Yhtenäinen virheenkäsittely (ProblemDetails)
+- Result pattern odotettuihin liiketoimintavirheisiin
+- CQRS + MediatR (command/query handlerit)
 - Varausten muokkaus ja peruutus
 - Huonekuvien tallennus (upload/list/download/delete)
 - Raportit: käyttöaste, kuukausitulot, suosituimmat huonetyypit
+- Health check endpoint: /health
 - Frontend vastaanotolle (Koontinäkymä, Varaukset, Asiakkaat, Huoneet, Raportit)
 - Staff console -kielenvaihto (suomi/englanti)
 - Xamk-tyylinen UI (valkoinen, keltainen, musta)
@@ -70,6 +73,7 @@ tests/
 - Entity Framework Core 8
 - SQLite
 - FluentValidation
+- MediatR (CQRS)
 - Swagger / OpenAPI
 - xUnit
 - Moq
@@ -181,8 +185,8 @@ docker compose down -v
 
 Repository sisältää valmiin Bicep-pohjan infrastruktuurille:
 
-- infra/main.bicep
-- infra/main.parameters.example.json
+- bicep/main.bicep
+- bicep/main.parameters.example.json
 
 Malli luo seuraavat resurssit:
 
@@ -203,10 +207,10 @@ Malli luo seuraavat resurssit:
 Kopioi ensin parametriesimerkki omaksi tiedostoksi:
 
 ```bash
-copy infra\\main.parameters.example.json infra\\main.parameters.json
+copy bicep\\main.parameters.example.json bicep\\main.parameters.json
 ```
 
-Päivitä arvot tiedostoon infra/main.parameters.json (nimet, region, origin).
+Päivitä arvot tiedostoon bicep/main.parameters.json (nimet, region, origin).
 Huom: frontendOrigin ilman lopun kauttaviivaa (/).
 
 Suorita deployment:
@@ -214,8 +218,8 @@ Suorita deployment:
 ```bash
 az deployment group create \
   --resource-group rg-hotel-lakeview \
-  --template-file infra/main.bicep \
-  --parameters @infra/main.parameters.json
+  --template-file bicep/main.bicep \
+  --parameters @bicep/main.parameters.json
 ```
 
 ### 3. Deployaa API App Serviceen
@@ -328,6 +332,10 @@ Asetuksia voi muuttaa tiedostoissa:
 - GET /api/reports/monthly-revenue?startDate=2026-01-01&endDate=2026-12-31
 - GET /api/reports/popular-room-types?startDate=2026-01-01&endDate=2026-12-31
 
+### Health
+
+- GET /health
+
 ## Liiketoimintasäännöt
 
 ### Päällekkäisvarausten esto
@@ -361,8 +369,8 @@ dotnet test HotelLakeview.sln
 
 Nykyinen testimäärä:
 
-- 33 testiä yhteensä
-- 32 yksikkötestiä
+- 34 testiä yhteensä
+- 33 yksikkötestiä
 - 1 integraatio smoke -testi
 - Testatut osa-alueet: hinnoittelu, DateRange-säännöt, käyttöastelaskenta, varauksen tilakäyttäytyminen, ReportService (mockit), CustomerService (mockit), RoomService (mockit)
 
